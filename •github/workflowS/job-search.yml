@@ -1,20 +1,9 @@
 name: Electrical Job Search
 
-on:
-  workflow_dispatch:
-  schedule:
-    - cron: "0 11-23 * * *"
-
-permissions:
-  contents: write
+on: push
 
 jobs:
   test:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Confirm workflow works
-        run: echo "Electrical Job Search workflow is running."
+      - run: echo "Electrical Job Search is working"
