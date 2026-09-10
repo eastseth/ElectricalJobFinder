@@ -1,0 +1,50 @@
+name: Electrical Job Search
+
+on:
+  schedule:
+    # GitHub Actions uses UTC.
+    # Runs hourly from 7 AM through 7 PM Eastern during daylight time.
+    - cron: "0 11-23 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  search:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Update search timestamp
+        run: |
+          python3 - <<'PY'
+          import json
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          path = Path("jobs.json")
+
+          if path.exists():
+              try:
+                  data = json.loads(path.read_text())
+              except Exception:
+                  data = {}
+          else:
+              data = {}
+
+          data["lastSearch"] = datetime.now(timezone.utc).isoformat()
+          data.setdefault("jobs", [])
+
+          path.write_text(json.dumps(data, indent=2))
+          PY
+
+      - name: Save update
+        run: |
+          git config user.name "Electrical Job Finder"
+          git config user.email "actions@github.com"
+          git add jobs.json
+          git diff --cached --quiet || git commit -m "Update job search"
+          git push
