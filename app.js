@@ -1,7 +1,8 @@
 
 const state = {
   jobs: [],
-  seen: new Set(JSON.parse(localStorage.getItem('seenJobs') || '[]'))
+  seen: new Set(JSON.parse(localStorage.getItem('seenJobs') || '[]')),
+  status: null
 };
 
 function esc(s='') {
@@ -34,13 +35,35 @@ function render() {
   const q = document.querySelector('#searchInput').value.trim().toLowerCase();
   const filtered = state.jobs.filter(j => [j.title,j.company,j.location].join(' ').toLowerCase().includes(q));
   document.querySelector('#allJobs').innerHTML = filtered.map(j => card(j, !state.seen.has(j.id))).join('');
+
+  const feedStatus = document.querySelector('#feedStatus');
+  if (feedStatus) {
+    const count = `${state.jobs.length} listing${state.jobs.length === 1 ? '' : 's'}`;
+    const updated = formatUpdated(state.status && state.status.last_run);
+    feedStatus.textContent = updated ? `${count} · ${updated}` : count;
+  }
+}
+
+function formatUpdated(iso) {
+  if (!iso) return '';
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  return `Updated ${date.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`;
 }
 
 async function loadJobs() {
   try {
-    const res = await fetch(`jobs.json?ts=${Date.now()}`, {cache:'no-store'});
-    if (!res.ok) throw new Error('feed unavailable');
-    state.jobs = await res.json();
+    const stamp = Date.now();
+    const [jobsRes, statusRes] = await Promise.all([
+      fetch(`jobs.json?ts=${stamp}`, {cache:'no-store'}),
+      fetch(`status.json?ts=${stamp}`, {cache:'no-store'}).catch(() => null)
+    ]);
+    if (!jobsRes.ok) throw new Error('feed unavailable');
+    const payload = await jobsRes.json();
+    state.jobs = Array.isArray(payload) ? payload : [];
+    if (statusRes && statusRes.ok) {
+      state.status = await statusRes.json();
+    }
     render();
   } catch(e) {
     state.jobs = [];

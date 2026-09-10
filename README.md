@@ -12,7 +12,7 @@ This is a Progressive Web App (PWA) shell for an electrical-technology-focused j
 - Browser-notification permission button
 
 ## Important
-The app UI is functional, but automatic live job discovery requires a hosted backend or automation that writes fresh listings into `jobs.json` (or an API endpoint). The ChatGPT job-watch automation created in the conversation operates separately and can send notifications when it finds new openings.
+GitHub Actions runs `job_search.py` hourly from 7:00 AM through 6:00 PM Eastern and writes matching Kentucky listings into `jobs.json`. You can also run the workflow manually from the Actions tab. The ChatGPT job-watch automation created in the conversation operates separately and can send notifications when it finds new openings.
 
 ## Install on iPhone
 1. Host this folder on an HTTPS host such as Vercel, Netlify, GitHub Pages, or similar.
