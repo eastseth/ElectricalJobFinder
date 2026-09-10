@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#111827" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Electrical Jobs" />
+  <link rel="apple-touch-icon" href="icon-180.png" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="stylesheet" href="styles.css" />
+  <title>Electrical Job Finder</title>
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <div class="eyebrow">ELECTRICAL TECHNOLOGY</div>
+      <h1>Job Finder</h1>
+    </div>
+    <button id="refreshBtn" class="icon-btn" aria-label="Refresh">↻</button>
+  </header>
+
+  <main>
+    <section id="newView" class="view active">
+      <div class="section-head">
+        <div>
+          <h2>New jobs</h2>
+          <p id="newCount">0 new listings</p>
+        </div>
+        <span class="pill">Latest</span>
+      </div>
+      <div id="newJobs" class="cards"></div>
+      <div id="newEmpty" class="empty hidden">
+        <div class="empty-icon">⚡</div>
+        <h3>No new listings yet</h3>
+        <p>New electrical jobs will appear here after the feed updates.</p>
+      </div>
+    </section>
+
+    <section id="allView" class="view">
+      <div class="section-head">
+        <div>
+          <h2>All jobs</h2>
+          <p>Saved feed</p>
+        </div>
+      </div>
+      <div class="filter-row">
+        <input id="searchInput" type="search" placeholder="Search title, company, or city" />
+      </div>
+      <div id="allJobs" class="cards"></div>
+    </section>
+
+    <section id="settingsView" class="view">
+      <div class="section-head">
+        <div>
+          <h2>Settings</h2>
+          <p>Search preferences</p>
+        </div>
+      </div>
+
+      <div class="panel">
+        <label>Preferred roles</label>
+        <div class="chips">
+          <span>Internship</span>
+          <span>Electrician Helper</span>
+          <span>Apprenticeship</span>
+          <span>Apprentice Electrician</span>
+          <span>Electrical Trainee</span>
+          <span>Entry-Level Electrical Technician</span>
+          <span>Entry-Level Industrial Maintenance</span>
+          <span>Controls / Instrumentation Trainee</span>
+        </div>
+      </div>
+
+      <div class="panel">
+        <label>Experience filter</label>
+        <p>Prioritize 0–1 year experience, no-experience-required, trainee, internship, helper, and apprenticeship openings. De-prioritize jobs requiring several years of field experience, journeyman/master credentials, or a completed bachelor's degree.</p>
+      </div>
+
+      <div class="panel">
+        <label>Preferred Kentucky areas</label>
+        <p>Lexington, Georgetown, Harrodsburg, Danville, Nicholasville, Lawrenceburg, Louisville, and nearby areas.</p>
+      </div>
+
+      <div class="panel">
+        <label>Check schedule</label>
+        <p>Hourly from 7:00 AM through 6:00 PM Eastern — 12 checks per day.</p>
+      </div>
+
+      <div class="panel">
+        <label>Notifications</label>
+        <button id="notifyBtn" class="primary-btn">Enable browser notifications</button>
+        <p class="small">Browser notifications require the app to be hosted over HTTPS. Your ChatGPT scheduled job alerts work separately.</p>
+      </div>
+    </section>
+  </main>
+
+  <nav class="tabbar">
+    <button class="tab active" data-target="newView"><span>●</span>New</button>
+    <button class="tab" data-target="allView"><span>☰</span>All Jobs</button>
+    <button class="tab" data-target="settingsView"><span>⚙</span>Settings</button>
+  </nav>
+
+  <script src="app.js"></script>
+</body>
+</html>
