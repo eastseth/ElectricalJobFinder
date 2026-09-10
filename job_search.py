@@ -11,7 +11,7 @@ from jobspy import scrape_jobs
 
 OUTPUT_FILE = Path("jobs.json")
 STATUS_FILE = Path("status.json")
-MAX_FEED_SIZE = 200
+MAX_FEED_SIZE = 250
 MAX_JOB_AGE_DAYS = 45
 
 SEARCH_TERMS = [
@@ -97,6 +97,8 @@ BAD_TITLE_WORDS = [
     "journeyman",
     "journeyperson",
     "master electrician",
+    "licensed electrician",
+    "licensed master",
     "senior electrician",
     "senior electrical",
     "lead electrician",
@@ -106,6 +108,61 @@ BAD_TITLE_WORDS = [
     "electrical engineer iii",
     "foreman",
     "superintendent",
+]
+
+SENIOR_TITLE_RE = re.compile(
+    r"\b(managers?|directors?|supervisors?|superintendents?|foremen|foreman|chief|leaders?|leads?|executive|principal|estimator)\b",
+    re.I,
+)
+
+TITLE_EXCLUSIONS = [
+    "diesel",
+    "software",
+    "nurse",
+    "nursing",
+    "sales associate",
+    "sales specialist",
+    "truck driver",
+    "cdl driver",
+]
+
+ELECTRICAL_MARKERS = [
+    "electric",
+    "controls",
+    "instrumentation",
+    "i&e",
+    "i & e",
+    "i/e",
+    "plc",
+    "switchgear",
+    "substation",
+    "lineman",
+    "lineworker",
+    "line worker",
+    "wireman",
+    "high voltage",
+    "low voltage",
+    "motor control",
+]
+
+TARGET_TITLE_WORDS = [
+    "electric",
+    "apprentice",
+    "helper",
+    "trainee",
+    "technician",
+    "maintenance",
+    "controls",
+    "instrumentation",
+    "lineman",
+    "lineworker",
+    "line worker",
+    "wireman",
+    "i&e",
+    "i/e",
+    "substation",
+    "co-op",
+    "coop",
 ]
 
 GOOD_WORDS = [
@@ -282,6 +339,16 @@ def experience_too_high(title, description):
     if is_entry_title(title):
         return False
 
+    if SENIOR_TITLE_RE.search(title_l):
+        return True
+
+    if re.search(r"\bclass a\b", title_l) and "lineman" in title_l:
+        return True
+
+    if "engineer" in title_l and not is_entry_title(title) and "co-op" not in title_l and "coop" not in title_l:
+        if "technician" not in title_l and "technologist" not in title_l:
+            return True
+
     combined = f"{title_l} {description_l}"
     patterns = [
         r"\b([3-9]|[1-9][0-9])\+?\s+years?\s+(?:of\s+)?experience",
@@ -290,6 +357,45 @@ def experience_too_high(title, description):
     ]
 
     return any(re.search(pattern, combined) for pattern in patterns)
+
+
+def is_target_role_title(title):
+    title_l = title.lower()
+    if has_intern(title_l):
+        return True
+    return any(word in title_l for word in TARGET_TITLE_WORDS)
+
+
+def is_electrical_related(title, description, company):
+    if not is_target_role_title(title):
+        return False
+
+    title_l = title.lower()
+    company_l = company.lower()
+    title_company = f"{title_l} {company_l}"
+
+    if any(word in title_l for word in TITLE_EXCLUSIONS):
+        return False
+
+    intern_like = has_intern(title_l) or "co-op" in title_l or "coop" in title_l
+    if intern_like and not any(marker in title_company for marker in ELECTRICAL_MARKERS):
+        return False
+
+    if any(marker in title_company for marker in ELECTRICAL_MARKERS):
+        return True
+
+    if any(
+        phrase in title_l
+        for phrase in (
+            "maintenance technician",
+            "industrial maintenance",
+            "controls technician",
+            "automation technician",
+        )
+    ):
+        return True
+
+    return any(marker in description.lower() for marker in ELECTRICAL_MARKERS)
 
 
 def in_target_area(location):
@@ -309,7 +415,7 @@ def in_target_area(location):
 
 def relevance_score(title, description, location):
     title_l = title.lower()
-    desc_l = description.lower()
+    desc_l = description.lower() if is_target_role_title(title) else ""
     location_l = location.lower()
     combined = f"{title_l} {desc_l}"
 
@@ -321,7 +427,7 @@ def relevance_score(title, description, location):
     if "helper" in combined:
         score += 10
 
-    if has_intern(combined):
+    if has_intern(combined) or "co-op" in combined or "coop" in combined:
         score += 10
 
     if "trainee" in combined:
@@ -354,7 +460,14 @@ def relevance_score(title, description, location):
     if "electrical" in title_l:
         score += 5
 
+    if "lineman" in title_l or "lineworker" in title_l or "line worker" in title_l:
+        score += 5
+
     for word in GOOD_WORDS:
+        if word == "intern":
+            if has_intern(combined):
+                score += 1
+            continue
         if word in combined:
             score += 1
 
@@ -447,17 +560,20 @@ def search_jobs():
 
 def row_to_job(row):
     title = clean(row.get("title"))
-    company = clean(row.get("company"))
+    company = clean(row.get("company")) or "See listing"
     description = clean(row.get("description"))
     job_url = clean(row.get("job_url_direct")) or clean(row.get("job_url"))
 
-    if not title or not company or not job_url:
+    if not title or not job_url:
         return None, "missing_fields"
 
     location = get_location(row)
 
     if not in_target_area(location):
         return None, "out_of_area"
+
+    if not is_electrical_related(title, description, company):
+        return None, "not_electrical"
 
     if experience_too_high(title, description):
         return None, "too_senior"
@@ -493,6 +609,7 @@ def build_feed(raw_jobs):
     stats = {
         "missing_fields": 0,
         "out_of_area": 0,
+        "not_electrical": 0,
         "too_senior": 0,
         "low_score": 0,
         "too_old": 0,
@@ -539,20 +656,30 @@ def load_existing_jobs():
             continue
         if "example" in clean(job.get("company")).lower():
             continue
-        if not job.get("title") or not job.get("company") or not job.get("apply_url"):
+        if not job.get("title") or not job.get("apply_url"):
+            continue
+
+        location = clean(job.get("location")) or "Kentucky"
+        title = clean(job.get("title"))
+        company = clean(job.get("company")) or "See listing"
+        description = clean(job.get("reason"))
+
+        if not in_target_area(location):
+            continue
+        if not is_electrical_related(title, description, company):
+            continue
+        if experience_too_high(title, description):
             continue
 
         posted_date = parse_posted_date(job.get("date_posted"))
         if posted_date and (date.today() - posted_date).days > MAX_JOB_AGE_DAYS:
             continue
 
-        location = clean(job.get("location")) or "Kentucky"
-        title = clean(job.get("title"))
-        description = clean(job.get("reason"))
         job = dict(job)
+        job["company"] = company
         job["posted"] = format_posted(posted_date)
         job["_score"] = relevance_score(title, description, location)
-        job["_dedupe"] = make_dedupe_key(title, job.get("company", ""))
+        job["_dedupe"] = make_dedupe_key(title, company)
         kept.append(job)
 
     return kept
