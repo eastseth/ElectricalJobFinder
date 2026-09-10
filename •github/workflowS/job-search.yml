@@ -1,65 +1,50 @@
 name: Electrical Job Search
 
 on:
-  schedule:
-    # Covers 7 AM–6 PM Eastern during both EST and EDT.
-    # The time check below makes sure only the correct 12 local hours run.
-    - cron: "0 11-23 * * *"
   workflow_dispatch:
+  schedule:
+    - cron: "0 7-18 * * *"
+      timezone: "America/New_York"
 
 permissions:
   contents: write
 
+concurrency:
+  group: electrical-job-search
+  cancel-in-progress: false
+
 jobs:
-  search-jobs:
+  search:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
-      - name: Check Eastern time
-        id: timecheck
-        shell: bash
-        run: |
-          HOUR=$(TZ=America/New_York date +%H)
-          echo "Current Eastern hour: $HOUR"
-
-          if [ "$HOUR" -ge 7 ] && [ "$HOUR" -le 18 ]; then
-            echo "run_search=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "run_search=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Checkout repository
-        if: steps.timecheck.outputs.run_search == 'true' || github.event_name == 'workflow_dispatch'
-        uses: actions/checkout@v4
+      - name: Check out repository
+        uses: actions/checkout@v6
 
       - name: Set up Python
-        if: steps.timecheck.outputs.run_search == 'true' || github.event_name == 'workflow_dispatch'
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
+          cache: pip
 
       - name: Install dependencies
-        if: steps.timecheck.outputs.run_search == 'true' || github.event_name == 'workflow_dispatch'
-        run: |
-          python -m pip install --upgrade pip
-          pip install python-jobspy pandas
+        run: python -m pip install -r requirements.txt
 
       - name: Search for electrical jobs
-        if: steps.timecheck.outputs.run_search == 'true' || github.event_name == 'workflow_dispatch'
         run: python job_search.py
 
-      - name: Save updated jobs
-        if: steps.timecheck.outputs.run_search == 'true' || github.event_name == 'workflow_dispatch'
+      - name: Commit updated feed
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          git add jobs.json
+          git add jobs.json status.json
 
           if git diff --cached --quiet; then
-            echo "No changes to jobs.json"
-          else
-            git commit -m "Update electrical job listings"
-            git push
+            echo "No feed changes to commit."
+            exit 0
           fi
+
+          git commit -m "Update electrical job listings"
+          git push
